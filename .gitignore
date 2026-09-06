@@ -1,0 +1,48 @@
+# Node & Next.js dependencies and build
+node_modules/
+/.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Next.js build output
+.next/
+out/
+build/
+dist/
+
+# Environment files
+.env
+.env.*
+.env*.local
+.env.development.local
+.env.test.local
+.env.production
+.env.production.local
+*.pem
+
+# IDE & OS files
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.idea/
+
+# Antigravity Brain logs & scratch
+.brain/
+artifacts/
+media/
+
+# TypeScript cache
+*.tsbuildinfo
+next-env.d.ts
+
+# Contest pitch, video scripts & deployment scripts containing env flags
+docs/SUBMISSION_PITCH.md
+deploy.ps1
+deploy.sh

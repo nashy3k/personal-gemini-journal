@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.vscode
+.env*.local
+.env.development*
+.env.test*
+.brain
+artifacts
+media
+Dockerfile
+deploy.sh
+deploy.ps1
+README.md

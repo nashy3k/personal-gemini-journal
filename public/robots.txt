@@ -1,0 +1,3 @@
+# Personal Gemini Journal
+User-agent: *
+Allow: /
