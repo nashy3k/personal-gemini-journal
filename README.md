@@ -197,7 +197,7 @@ ideathon-ai-challenge/
 
 ### 1. Clone & Install Dependencies
 ```bash
-git clone https://github.com/your-username/personal-gemini-journal.git
+git clone https://github.com/nashy3k/personal-gemini-journal.git
 cd personal-gemini-journal
 npm install
 ```
@@ -314,6 +314,6 @@ This project is licensed under the **Polyform Noncommercial License 1.0.0**.
 - **Non-commercial Use Only**: You are free to view, fork, and use this code for personal, educational, or testing purposes.
 - **Commercial Use Restricted**: Commercial use, including running this bot as a paid service or using the logic in commercial products, is strictly prohibited without explicit permission from the author.
 
-See the [LICENSE](file:///d:/Projects/ideathon-ai-challenge/LICENSE) file for the full legal text.
+See the [LICENSE](https://github.com/nashy3k/personal-gemini-journal/blob/main/LICENSE) file for the full legal text.
 
 Copyright (c) 2026 nashy3k
