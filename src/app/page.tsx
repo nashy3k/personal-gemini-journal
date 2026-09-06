@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth, isFirebaseConfigured } from '@/lib/firebase/client';
+import { User, onAuthStateChanged, signOut } from 'firebase/auth';
+import { ensureFirebaseInitialized } from '@/lib/firebase/client';
 import {
   subscribeToJournals,
   subscribeToMessages,
@@ -93,18 +93,39 @@ export default function JournalApp() {
 
   // 2. Auth state subscription
   useEffect(() => {
-    if (auth && isFirebaseConfigured) {
-      const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-        setUser(firebaseUser);
-        if (firebaseUser) {
-          setIsDemoUser(false);
-        }
-      });
-      return () => unsubscribe();
-    } else {
-      setIsDemoUser(true);
-    }
+    let unsubscribeAuth: (() => void) | undefined;
+
+    ensureFirebaseInitialized().then(({ auth: activeAuth }) => {
+      if (activeAuth) {
+        unsubscribeAuth = onAuthStateChanged(activeAuth, (firebaseUser) => {
+          setUser(firebaseUser);
+          if (firebaseUser) {
+            setIsDemoUser(false);
+          }
+        });
+      } else {
+        setIsDemoUser(true);
+      }
+    });
+
+    return () => {
+      if (unsubscribeAuth) unsubscribeAuth();
+    };
   }, []);
+
+  const handleSignOut = async () => {
+    setUser(null);
+    setIsDemoUser(false);
+    const { auth: activeAuth } = await ensureFirebaseInitialized();
+    if (activeAuth) {
+      try {
+        await signOut(activeAuth);
+      } catch (err) {
+        console.warn('Sign out error:', err);
+      }
+    }
+  };
+
 
   const hasAutoSeeded = useRef(false);
 
@@ -425,6 +446,7 @@ export default function JournalApp() {
         activeView={activeView}
         onViewChange={(view) => setActiveView(view)}
         onOpenAuth={() => setIsAuthModalOpen(true)}
+        onSignOut={handleSignOut}
         onTogglePersonaModal={() => setIsPersonaModalOpen(true)}
         isDarkMode={isDarkMode}
         onToggleDarkMode={toggleDarkMode}

@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { auth, googleProvider, isFirebaseConfigured } from '@/lib/firebase/client';
+import { ensureFirebaseInitialized, googleProvider, isFirebaseAvailable } from '@/lib/firebase/client';
 import { X, Mail, Lock, User as UserIcon, AlertCircle, Sparkles, ArrowRight } from 'lucide-react';
 
 interface AuthModalProps {
@@ -27,6 +27,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConfigured, setIsConfigured] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (isOpen) {
+      ensureFirebaseInitialized().then(({ auth: activeAuth }) => {
+        setIsConfigured(Boolean(activeAuth));
+      });
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -54,7 +63,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setError(null);
     setLoading(true);
     try {
-      if (!isFirebaseConfigured || !auth) {
+      const { auth: activeAuth } = await ensureFirebaseInitialized();
+      if (!activeAuth) {
         if (onDemoLogin) {
           onDemoLogin();
           onClose();
@@ -62,7 +72,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
         throw new Error('Firebase environment variables are not configured.');
       }
-      await signInWithPopup(auth, googleProvider);
+      await signInWithPopup(activeAuth, googleProvider);
       onClose();
     } catch (err: any) {
       console.error('Google Sign In Error:', err);
@@ -78,7 +88,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
 
     try {
-      if (!isFirebaseConfigured || !auth) {
+      const { auth: activeAuth } = await ensureFirebaseInitialized();
+      if (!activeAuth) {
         if (onDemoLogin) {
           onDemoLogin();
           onClose();
@@ -88,12 +99,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
 
       if (isSignUp) {
-        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+        const userCred = await createUserWithEmailAndPassword(activeAuth, email, password);
         if (name.trim() && userCred.user) {
           await updateProfile(userCred.user, { displayName: name.trim() });
         }
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(activeAuth, email, password);
       }
       onClose();
     } catch (err: any) {
@@ -131,14 +142,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Firebase Warning or Offline Demo Info */}
-        {!isFirebaseConfigured && (
+        {!isConfigured && (
           <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <div>
+            <div className="flex-1">
               <p className="font-semibold">Demo Sandbox Mode</p>
-              <p className="text-[11px] opacity-90">
+              <p className="text-[11px] opacity-90 mb-2">
                 Firebase keys are not configured. You can continue as a Demo User with local storage persistence.
               </p>
+              {onDemoLogin && (
+                <button
+                  type="button"
+                  onClick={() => { onDemoLogin(); onClose(); }}
+                  className="px-2.5 py-1 text-[11px] font-semibold bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition"
+                >
+                  Continue as Demo User
+                </button>
+              )}
             </div>
           </div>
         )}

@@ -12,9 +12,20 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
+  Firestore,
 } from 'firebase/firestore';
-import { db, isFirebaseConfigured } from './client';
+import { db, initFirebase } from './client';
 import { Journal, Message, PersonaId, HabitItem } from '../types/journal';
+
+function getActiveDb(): Firestore | null {
+  if (db) return db;
+  const res = initFirebase();
+  return res.db;
+}
+
+function isDemoUser(userId: string): boolean {
+  return !userId || userId === 'demo-user-local' || userId.startsWith('demo-') || userId.startsWith('local-');
+}
 
 const LOCAL_STORAGE_KEY_JOURNALS = 'gemini_journal_demo_journals';
 const LOCAL_STORAGE_KEY_MESSAGES_PREFIX = 'gemini_journal_demo_messages_';
@@ -114,14 +125,15 @@ export function subscribeToJournals(
   onUpdate: (journals: Journal[]) => void,
   onError?: (err: Error) => void
 ): () => void {
-  if (!isFirebaseConfigured || !db) {
+  const activeDb = getActiveDb();
+  if (!activeDb || isDemoUser(userId)) {
     const local = getLocalJournals();
     onUpdate(local);
     // Return dummy unsubscribe
     return () => {};
   }
 
-  const journalsRef = collection(db, 'users', userId, 'journals');
+  const journalsRef = collection(activeDb, 'users', userId, 'journals');
   const q = query(journalsRef, orderBy('updatedAt', 'desc'));
 
   return onSnapshot(
@@ -164,7 +176,8 @@ export async function createJournal(
     isFavorite: false,
   };
 
-  if (!isFirebaseConfigured || !db) {
+  const activeDb = getActiveDb();
+  if (!activeDb || isDemoUser(userId)) {
     const newId = 'local-' + Math.random().toString(36).substring(2, 9);
     const newJournal: Journal = { id: newId, ...journalData };
     const list = getLocalJournals();
@@ -183,11 +196,11 @@ export async function createJournal(
     return newJournal;
   }
 
-  const journalsRef = collection(db, 'users', userId, 'journals');
+  const journalsRef = collection(activeDb, 'users', userId, 'journals');
   const docRef = await addDoc(journalsRef, journalData);
 
   if (data.initialMessage) {
-    const messagesRef = collection(db, 'users', userId, 'journals', docRef.id, 'messages');
+    const messagesRef = collection(activeDb, 'users', userId, 'journals', docRef.id, 'messages');
     await addDoc(messagesRef, {
       role: 'user',
       content: data.initialMessage,
@@ -214,14 +227,15 @@ export async function updateJournal(
     updatedAt: Date.now(),
   };
 
-  if (!isFirebaseConfigured || !db) {
+  const activeDb = getActiveDb();
+  if (!activeDb || isDemoUser(userId)) {
     const list = getLocalJournals();
     const updated = list.map((j) => (j.id === journalId ? { ...j, ...updatePayload } : j));
     saveLocalJournals(updated);
     return;
   }
 
-  const journalDoc = doc(db, 'users', userId, 'journals', journalId);
+  const journalDoc = doc(activeDb, 'users', userId, 'journals', journalId);
   await updateDoc(journalDoc, updatePayload);
 }
 
@@ -229,7 +243,8 @@ export async function updateJournal(
  * Deletes a journal and all its subcollection messages.
  */
 export async function deleteJournal(userId: string, journalId: string): Promise<void> {
-  if (!isFirebaseConfigured || !db) {
+  const activeDb = getActiveDb();
+  if (!activeDb || isDemoUser(userId)) {
     const list = getLocalJournals().filter((j) => j.id !== journalId);
     saveLocalJournals(list);
     if (typeof window !== 'undefined') {
@@ -238,12 +253,12 @@ export async function deleteJournal(userId: string, journalId: string): Promise<
     return;
   }
 
-  const journalDoc = doc(db, 'users', userId, 'journals', journalId);
-  const messagesRef = collection(db, 'users', userId, 'journals', journalId, 'messages');
+  const journalDoc = doc(activeDb, 'users', userId, 'journals', journalId);
+  const messagesRef = collection(activeDb, 'users', userId, 'journals', journalId, 'messages');
 
   // Delete all nested messages first
   const messagesSnapshot = await getDocs(messagesRef);
-  const batch = writeBatch(db);
+  const batch = writeBatch(activeDb);
   messagesSnapshot.forEach((docSnapshot) => {
     batch.delete(docSnapshot.ref);
   });
@@ -251,6 +266,7 @@ export async function deleteJournal(userId: string, journalId: string): Promise<
 
   await batch.commit();
 }
+
 
 /**
  * Clears user data based on time scope: 'past-week', 'past-month', or 'all'.
@@ -267,7 +283,8 @@ export async function clearUserDataByScope(
       ? now - 30 * 24 * 60 * 60 * 1000
       : 0;
 
-  if (!isFirebaseConfigured || !db) {
+  const activeDb = getActiveDb();
+  if (!activeDb || isDemoUser(userId)) {
     if (typeof window !== 'undefined') {
       const journals = getLocalJournals();
       const keptJournals: Journal[] = [];
@@ -290,7 +307,7 @@ export async function clearUserDataByScope(
   }
 
   try {
-    const journalsRef = collection(db, 'users', userId, 'journals');
+    const journalsRef = collection(activeDb, 'users', userId, 'journals');
     const journalsSnap = await getDocs(journalsRef);
 
     for (const jDoc of journalsSnap.docs) {
@@ -298,9 +315,9 @@ export async function clearUserDataByScope(
       const time = data.createdAt || data.updatedAt || 0;
 
       if (scope === 'all' || time >= cutoffTimestamp) {
-        const messagesRef = collection(db, 'users', userId, 'journals', jDoc.id, 'messages');
+        const messagesRef = collection(activeDb, 'users', userId, 'journals', jDoc.id, 'messages');
         const messagesSnap = await getDocs(messagesRef);
-        const batch = writeBatch(db);
+        const batch = writeBatch(activeDb);
         messagesSnap.forEach((m) => batch.delete(m.ref));
         batch.delete(jDoc.ref);
         await batch.commit();
@@ -308,10 +325,10 @@ export async function clearUserDataByScope(
     }
 
     if (scope === 'all') {
-      const habitsRef = collection(db, 'users', userId, 'habits');
+      const habitsRef = collection(activeDb, 'users', userId, 'habits');
       const habitsSnap = await getDocs(habitsRef);
       if (!habitsSnap.empty) {
-        const habitBatch = writeBatch(db);
+        const habitBatch = writeBatch(activeDb);
         habitsSnap.forEach((h) => habitBatch.delete(h.ref));
         await habitBatch.commit();
       }
@@ -340,13 +357,14 @@ export function subscribeToMessages(
   onUpdate: (messages: Message[]) => void,
   onError?: (err: Error) => void
 ): () => void {
-  if (!isFirebaseConfigured || !db) {
+  const activeDb = getActiveDb();
+  if (!activeDb || isDemoUser(userId)) {
     const local = getLocalMessages(journalId);
     onUpdate(local);
     return () => {};
   }
 
-  const messagesRef = collection(db, 'users', userId, 'journals', journalId, 'messages');
+  const messagesRef = collection(activeDb, 'users', userId, 'journals', journalId, 'messages');
   const q = query(messagesRef, orderBy('timestamp', 'asc'));
 
   return onSnapshot(
@@ -379,7 +397,8 @@ export async function addJournalMessage(
     timestamp,
   };
 
-  if (!isFirebaseConfigured || !db) {
+  const activeDb = getActiveDb();
+  if (!activeDb || isDemoUser(userId)) {
     const msgId = 'msg-' + Math.random().toString(36).substring(2, 9);
     const newMsg: Message = { id: msgId, ...payload };
     const list = getLocalMessages(journalId);
@@ -404,11 +423,11 @@ export async function addJournalMessage(
     return newMsg;
   }
 
-  const messagesRef = collection(db, 'users', userId, 'journals', journalId, 'messages');
+  const messagesRef = collection(activeDb, 'users', userId, 'journals', journalId, 'messages');
   const docRef = await addDoc(messagesRef, payload);
 
   // Update parent journal
-  const journalDoc = doc(db, 'users', userId, 'journals', journalId);
+  const journalDoc = doc(activeDb, 'users', userId, 'journals', journalId);
   const snap = await getDoc(journalDoc);
   if (snap.exists()) {
     const curCount = snap.data().messageCount || 0;
@@ -425,6 +444,7 @@ export async function addJournalMessage(
   };
 }
 
+
 /**
  * Subscribes to user habits.
  * Path: /users/{uid}/habits
@@ -434,13 +454,14 @@ export function subscribeToHabits(
   onUpdate: (habits: HabitItem[]) => void,
   onError?: (err: Error) => void
 ): () => void {
-  if (!isFirebaseConfigured || !db || userId === 'demo-user-local') {
+  const activeDb = getActiveDb();
+  if (!activeDb || isDemoUser(userId)) {
     const local = getLocalHabits(userId);
     onUpdate(local);
     return () => {};
   }
 
-  const habitsRef = collection(db, 'users', userId, 'habits');
+  const habitsRef = collection(activeDb, 'users', userId, 'habits');
   const q = query(habitsRef, orderBy('createdAt', 'desc'));
 
   return onSnapshot(
@@ -497,7 +518,8 @@ export async function createHabit(
     updatedAt: now,
   };
 
-  if (!isFirebaseConfigured || !db || userId === 'demo-user-local') {
+  const activeDb = getActiveDb();
+  if (!activeDb || isDemoUser(userId)) {
     const newId = 'habit-' + Math.random().toString(36).substring(2, 9);
     const newHabit: HabitItem = { id: newId, ...habitData };
     const list = getLocalHabits(userId);
@@ -506,7 +528,7 @@ export async function createHabit(
   }
 
   try {
-    const habitsRef = collection(db, 'users', userId, 'habits');
+    const habitsRef = collection(activeDb, 'users', userId, 'habits');
     const docRef = await addDoc(habitsRef, habitData);
     return {
       id: docRef.id,
@@ -542,12 +564,13 @@ export async function updateHabit(
     : [{ id: habitId, userId, ...updatePayload } as HabitItem, ...localList];
   saveLocalHabits(updatedLocal);
 
-  if (!isFirebaseConfigured || !db || userId === 'demo-user-local') {
+  const activeDb = getActiveDb();
+  if (!activeDb || isDemoUser(userId)) {
     return;
   }
 
   try {
-    const habitDoc = doc(db, 'users', userId, 'habits', habitId);
+    const habitDoc = doc(activeDb, 'users', userId, 'habits', habitId);
     await updateDoc(habitDoc, updatePayload);
   } catch (err) {
     console.warn('[Firestore] updateHabit error, updated locally only:', err);
@@ -561,17 +584,19 @@ export async function deleteHabit(userId: string, habitId: string): Promise<void
   const localList = getLocalHabits(userId).filter((h) => h.id !== habitId);
   saveLocalHabits(localList);
 
-  if (!isFirebaseConfigured || !db || userId === 'demo-user-local') {
+  const activeDb = getActiveDb();
+  if (!activeDb || isDemoUser(userId)) {
     return;
   }
 
   try {
-    const habitDoc = doc(db, 'users', userId, 'habits', habitId);
+    const habitDoc = doc(activeDb, 'users', userId, 'habits', habitId);
     await deleteDoc(habitDoc);
   } catch (err) {
     console.warn('[Firestore] deleteHabit error:', err);
   }
 }
+
 
 /**
  * Toggles habit completion status and updates streak.

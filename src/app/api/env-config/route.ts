@@ -3,13 +3,15 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const env = process.env;
   return NextResponse.json({
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
-    databaseId: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID || 'gemini-journal',
+    apiKey: env.FIREBASE_API_KEY || env['NEXT_PUBLIC_FIREBASE_API_KEY'] || '',
+    authDomain: env.FIREBASE_AUTH_DOMAIN || env['NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'] || '',
+    projectId: env.FIREBASE_PROJECT_ID || env['NEXT_PUBLIC_FIREBASE_PROJECT_ID'] || '',
+    storageBucket: env.FIREBASE_STORAGE_BUCKET || env['NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'] || '',
+    messagingSenderId: env.FIREBASE_MESSAGING_SENDER_ID || env['NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'] || '',
+    appId: env.FIREBASE_APP_ID || env['NEXT_PUBLIC_FIREBASE_APP_ID'] || '',
+    databaseId: env.FIREBASE_DATABASE_ID || env['NEXT_PUBLIC_FIREBASE_DATABASE_ID'] || 'gemini-journal',
   });
 }
+

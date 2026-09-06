@@ -25,6 +25,7 @@ interface NavbarProps {
   activeView: ActiveView;
   onViewChange: (view: ActiveView) => void;
   onOpenAuth: () => void;
+  onSignOut?: () => void;
   onTogglePersonaModal?: () => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
@@ -37,12 +38,17 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeView,
   onViewChange,
   onOpenAuth,
+  onSignOut,
   onTogglePersonaModal,
   isDarkMode,
   onToggleDarkMode,
   isStreaming = false,
 }) => {
   const handleSignOut = async () => {
+    if (onSignOut) {
+      onSignOut();
+      return;
+    }
     if (auth) {
       await signOut(auth);
     }

@@ -6,21 +6,25 @@ export const metadata: Metadata = {
   description: 'A multi-persona intelligent AI companion for mindful reflection, stoic inquiry, and personal growth powered by Gemini.',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const env = process.env;
   const publicEnv = {
-    NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
-    NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
-    NEXT_PUBLIC_FIREBASE_DATABASE_ID: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID || 'gemini-journal',
-    NEXT_PUBLIC_AQICN_TOKEN: process.env.NEXT_PUBLIC_AQICN_TOKEN || process.env.AQICN_TOKEN || '',
+    NEXT_PUBLIC_FIREBASE_API_KEY: env.FIREBASE_API_KEY || env['NEXT_PUBLIC_FIREBASE_API_KEY'] || '',
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: env.FIREBASE_AUTH_DOMAIN || env['NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'] || '',
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID: env.FIREBASE_PROJECT_ID || env['NEXT_PUBLIC_FIREBASE_PROJECT_ID'] || '',
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: env.FIREBASE_STORAGE_BUCKET || env['NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'] || '',
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: env.FIREBASE_MESSAGING_SENDER_ID || env['NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'] || '',
+    NEXT_PUBLIC_FIREBASE_APP_ID: env.FIREBASE_APP_ID || env['NEXT_PUBLIC_FIREBASE_APP_ID'] || '',
+    NEXT_PUBLIC_FIREBASE_DATABASE_ID: env.FIREBASE_DATABASE_ID || env['NEXT_PUBLIC_FIREBASE_DATABASE_ID'] || 'gemini-journal',
+    NEXT_PUBLIC_AQICN_TOKEN: env.AQICN_TOKEN || env['NEXT_PUBLIC_AQICN_TOKEN'] || '',
   };
+
 
   return (
     <html lang="en" className="dark">
