@@ -253,52 +253,81 @@ export async function deleteJournal(userId: string, journalId: string): Promise<
 }
 
 /**
- * Completely resets all user reflections, messages, and habits.
+ * Clears user data based on time scope: 'past-week', 'past-month', or 'all'.
  */
-export async function clearAllUserData(userId: string): Promise<void> {
+export async function clearUserDataByScope(
+  userId: string,
+  scope: 'past-week' | 'past-month' | 'all'
+): Promise<void> {
+  const now = Date.now();
+  const cutoffTimestamp =
+    scope === 'past-week'
+      ? now - 7 * 24 * 60 * 60 * 1000
+      : scope === 'past-month'
+      ? now - 30 * 24 * 60 * 60 * 1000
+      : 0;
+
   if (!isFirebaseConfigured || !db) {
     if (typeof window !== 'undefined') {
       const journals = getLocalJournals();
+      const keptJournals: Journal[] = [];
       journals.forEach((j) => {
-        localStorage.removeItem(`${LOCAL_STORAGE_KEY_MESSAGES_PREFIX}${j.id}`);
+        const time = j.createdAt || j.updatedAt;
+        if (scope !== 'all' && time < cutoffTimestamp) {
+          keptJournals.push(j);
+        } else {
+          localStorage.removeItem(`${LOCAL_STORAGE_KEY_MESSAGES_PREFIX}${j.id}`);
+        }
       });
-      localStorage.removeItem(LOCAL_STORAGE_KEY_JOURNALS);
-      localStorage.removeItem(LOCAL_STORAGE_KEY_HABITS);
+      saveLocalJournals(keptJournals);
+
+      if (scope === 'all') {
+        localStorage.removeItem(LOCAL_STORAGE_KEY_HABITS);
+      }
       localStorage.setItem('has_dismissed_welcome_seed', 'true');
     }
     return;
   }
 
   try {
-    // 1. Delete all journals & nested messages
     const journalsRef = collection(db, 'users', userId, 'journals');
     const journalsSnap = await getDocs(journalsRef);
-    
+
     for (const jDoc of journalsSnap.docs) {
-      const messagesRef = collection(db, 'users', userId, 'journals', jDoc.id, 'messages');
-      const messagesSnap = await getDocs(messagesRef);
-      const batch = writeBatch(db);
-      messagesSnap.forEach((m) => batch.delete(m.ref));
-      batch.delete(jDoc.ref);
-      await batch.commit();
+      const data = jDoc.data();
+      const time = data.createdAt || data.updatedAt || 0;
+
+      if (scope === 'all' || time >= cutoffTimestamp) {
+        const messagesRef = collection(db, 'users', userId, 'journals', jDoc.id, 'messages');
+        const messagesSnap = await getDocs(messagesRef);
+        const batch = writeBatch(db);
+        messagesSnap.forEach((m) => batch.delete(m.ref));
+        batch.delete(jDoc.ref);
+        await batch.commit();
+      }
     }
 
-    // 2. Delete all habits
-    const habitsRef = collection(db, 'users', userId, 'habits');
-    const habitsSnap = await getDocs(habitsRef);
-    if (!habitsSnap.empty) {
-      const habitBatch = writeBatch(db);
-      habitsSnap.forEach((h) => habitBatch.delete(h.ref));
-      await habitBatch.commit();
+    if (scope === 'all') {
+      const habitsRef = collection(db, 'users', userId, 'habits');
+      const habitsSnap = await getDocs(habitsRef);
+      if (!habitsSnap.empty) {
+        const habitBatch = writeBatch(db);
+        habitsSnap.forEach((h) => habitBatch.delete(h.ref));
+        await habitBatch.commit();
+      }
     }
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('has_dismissed_welcome_seed', 'true');
     }
   } catch (err) {
-    console.error('[Firestore] Failed to clear user data:', err);
+    console.error('[Firestore] Failed to clear user data by scope:', err);
     throw err;
   }
+}
+
+export async function clearAllUserData(userId: string): Promise<void> {
+  return clearUserDataByScope(userId, 'all');
 }
 
 /**

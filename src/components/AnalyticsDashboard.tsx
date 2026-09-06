@@ -25,7 +25,7 @@ interface AnalyticsDashboardProps {
   activePersona: Persona;
   onNavigateToJournal?: (journalId?: string) => void;
   onCreateNewReflection?: () => void;
-  onClearAllData?: () => Promise<void>;
+  onClearData?: (scope: 'past-week' | 'past-month' | 'all') => Promise<void>;
 }
 
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
@@ -33,13 +33,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   activePersona,
   onNavigateToJournal,
   onCreateNewReflection,
-  onClearAllData,
+  onClearData,
 }) => {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | 'all'>('7d');
   const [chartMode, setChartMode] = useState<'radar' | 'bars'>('radar');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [resetScope, setResetScope] = useState<'past-week' | 'past-month' | 'all'>('all');
   const [showConfirmReset, setShowConfirmReset] = useState(false);
 
   // 1. Calculate aggregated summary metrics
@@ -217,39 +218,48 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             ))}
           </div>
 
-          {onClearAllData && (
+          {onClearData && (
             !showConfirmReset ? (
               <button
                 type="button"
                 onClick={() => setShowConfirmReset(true)}
                 className="px-3 py-1.5 rounded-xl border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 text-xs font-medium transition"
-                title="Reset all account history and metrics"
+                title="Reset reflections and metrics by scope"
               >
-                Reset Data
+                Reset Data...
               </button>
             ) : (
-              <div className="flex items-center gap-1.5 bg-rose-500/10 p-1 rounded-xl border border-rose-500/30">
-                <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold px-1">Confirm Reset?</span>
+              <div className="flex items-center gap-1.5 bg-rose-500/10 p-1.5 rounded-xl border border-rose-500/30 flex-wrap">
+                <select
+                  value={resetScope}
+                  onChange={(e) => setResetScope(e.target.value as any)}
+                  className="bg-background text-foreground text-[11px] font-semibold px-2 py-1 rounded-lg border border-border focus:outline-none"
+                >
+                  <option value="past-week">Past 7 Days</option>
+                  <option value="past-month">Past 30 Days</option>
+                  <option value="all">Entire Account (All Time)</option>
+                </select>
+
                 <button
                   type="button"
                   disabled={isResetting}
                   onClick={async () => {
                     setIsResetting(true);
                     try {
-                      await onClearAllData();
+                      await onClearData(resetScope);
                     } finally {
                       setIsResetting(false);
                       setShowConfirmReset(false);
                     }
                   }}
-                  className="px-2 py-0.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold hover:bg-rose-700 disabled:opacity-50"
+                  className="px-2.5 py-1 rounded-lg bg-rose-600 text-white text-[11px] font-bold hover:bg-rose-700 disabled:opacity-50"
                 >
-                  {isResetting ? 'Clearing...' : 'Yes, Clear All'}
+                  {isResetting ? 'Clearing...' : 'Clear Scope'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowConfirmReset(false)}
-                  className="px-1.5 py-0.5 rounded-lg text-muted-foreground hover:text-foreground text-[11px]"
+                  className="px-1.5 py-1 rounded-lg text-muted-foreground hover:text-foreground text-[11px]"
                 >
                   Cancel
                 </button>

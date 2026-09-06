@@ -15,6 +15,7 @@ import {
   deleteHabit,
   toggleHabitCompletion,
   clearAllUserData,
+  clearUserDataByScope,
 } from '@/lib/firebase/firestore';
 import { Journal, Message, Persona, PersonaId, LocationContext, ActiveView, HabitItem, HabitCategory } from '@/lib/types/journal';
 import { DEFAULT_PERSONAS } from '@/lib/constants/personas';
@@ -505,11 +506,13 @@ export default function JournalApp() {
                 setActiveView('journal');
               }}
               onCreateNewReflection={handleCreateNewJournal}
-              onClearAllData={async () => {
-                await clearAllUserData(currentUserId);
-                setJournals([]);
-                setMessages([]);
-                setSelectedJournalId(null);
+              onClearData={async (scope) => {
+                await clearUserDataByScope(currentUserId, scope);
+                if (scope === 'all') {
+                  setJournals([]);
+                  setMessages([]);
+                  setSelectedJournalId(null);
+                }
               }}
             />
           </main>
