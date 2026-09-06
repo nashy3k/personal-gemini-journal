@@ -14,6 +14,7 @@ import {
   createHabit,
   deleteHabit,
   toggleHabitCompletion,
+  clearAllUserData,
 } from '@/lib/firebase/firestore';
 import { Journal, Message, Persona, PersonaId, LocationContext, ActiveView, HabitItem, HabitCategory } from '@/lib/types/journal';
 import { DEFAULT_PERSONAS } from '@/lib/constants/personas';
@@ -121,7 +122,12 @@ export default function JournalApp() {
             const exists = fetchedJournals.some((j) => j.id === prevId);
             return exists ? prevId : fetchedJournals[0].id;
           });
-        } else if (!hasAutoSeeded.current && currentUserId) {
+        } else if (
+          !hasAutoSeeded.current &&
+          currentUserId &&
+          typeof window !== 'undefined' &&
+          !localStorage.getItem('has_dismissed_welcome_seed')
+        ) {
           hasAutoSeeded.current = true;
           createJournal(currentUserId, {
             title: '✨ Welcome Reflection',
@@ -445,6 +451,7 @@ export default function JournalApp() {
                   selectedJournalId={selectedJournalId}
                   onSelectJournal={(id) => {
                     setSelectedJournalId(id);
+                    setActiveView('journal');
                     setIsMobileSidebarOpen(false);
                   }}
                   onCreateNewJournal={handleCreateNewJournal}
@@ -498,6 +505,12 @@ export default function JournalApp() {
                 setActiveView('journal');
               }}
               onCreateNewReflection={handleCreateNewJournal}
+              onClearAllData={async () => {
+                await clearAllUserData(currentUserId);
+                setJournals([]);
+                setMessages([]);
+                setSelectedJournalId(null);
+              }}
             />
           </main>
         )}

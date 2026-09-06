@@ -25,6 +25,7 @@ interface AnalyticsDashboardProps {
   activePersona: Persona;
   onNavigateToJournal?: (journalId?: string) => void;
   onCreateNewReflection?: () => void;
+  onClearAllData?: () => Promise<void>;
 }
 
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
@@ -32,11 +33,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   activePersona,
   onNavigateToJournal,
   onCreateNewReflection,
+  onClearAllData,
 }) => {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | 'all'>('7d');
   const [chartMode, setChartMode] = useState<'radar' | 'bars'>('radar');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
+  const [showConfirmReset, setShowConfirmReset] = useState(false);
 
   // 1. Calculate aggregated summary metrics
   const totalReflections = journals.length;
@@ -119,6 +123,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
   // Current streak calculation
   const currentStreak = useMemo(() => {
+    if (totalReflections === 0) return 0;
     let streak = 0;
     for (let i = streakDays.length - 1; i >= 0; i--) {
       if (streakDays[i].hasReflection) {
@@ -130,9 +135,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         break;
       }
     }
-    // Base fallback if demo mode with few reflections
-    return Math.max(streak, journals.length > 0 ? Math.min(journals.length, 5) : 3);
-  }, [streakDays, journals.length]);
+    return streak;
+  }, [streakDays, totalReflections]);
 
   // 3. Top Reflection Topics
   const reflectionTopics = useMemo(() => {
@@ -196,7 +200,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         </div>
 
         {/* Action / Range controls */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           <div className="flex items-center p-1 bg-muted/60 rounded-xl border border-border/80 text-xs font-medium">
             {(['7d', '30d', 'all'] as const).map((range) => (
               <button
@@ -212,6 +216,46 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </button>
             ))}
           </div>
+
+          {onClearAllData && (
+            !showConfirmReset ? (
+              <button
+                type="button"
+                onClick={() => setShowConfirmReset(true)}
+                className="px-3 py-1.5 rounded-xl border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 text-xs font-medium transition"
+                title="Reset all account history and metrics"
+              >
+                Reset Data
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5 bg-rose-500/10 p-1 rounded-xl border border-rose-500/30">
+                <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold px-1">Confirm Reset?</span>
+                <button
+                  type="button"
+                  disabled={isResetting}
+                  onClick={async () => {
+                    setIsResetting(true);
+                    try {
+                      await onClearAllData();
+                    } finally {
+                      setIsResetting(false);
+                      setShowConfirmReset(false);
+                    }
+                  }}
+                  className="px-2 py-0.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold hover:bg-rose-700 disabled:opacity-50"
+                >
+                  {isResetting ? 'Clearing...' : 'Yes, Clear All'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmReset(false)}
+                  className="px-1.5 py-0.5 rounded-lg text-muted-foreground hover:text-foreground text-[11px]"
+                >
+                  Cancel
+                </button>
+              </div>
+            )
+          )}
 
           <button
             onClick={onCreateNewReflection}

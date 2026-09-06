@@ -253,6 +253,55 @@ export async function deleteJournal(userId: string, journalId: string): Promise<
 }
 
 /**
+ * Completely resets all user reflections, messages, and habits.
+ */
+export async function clearAllUserData(userId: string): Promise<void> {
+  if (!isFirebaseConfigured || !db) {
+    if (typeof window !== 'undefined') {
+      const journals = getLocalJournals();
+      journals.forEach((j) => {
+        localStorage.removeItem(`${LOCAL_STORAGE_KEY_MESSAGES_PREFIX}${j.id}`);
+      });
+      localStorage.removeItem(LOCAL_STORAGE_KEY_JOURNALS);
+      localStorage.removeItem(LOCAL_STORAGE_KEY_HABITS);
+      localStorage.setItem('has_dismissed_welcome_seed', 'true');
+    }
+    return;
+  }
+
+  try {
+    // 1. Delete all journals & nested messages
+    const journalsRef = collection(db, 'users', userId, 'journals');
+    const journalsSnap = await getDocs(journalsRef);
+    
+    for (const jDoc of journalsSnap.docs) {
+      const messagesRef = collection(db, 'users', userId, 'journals', jDoc.id, 'messages');
+      const messagesSnap = await getDocs(messagesRef);
+      const batch = writeBatch(db);
+      messagesSnap.forEach((m) => batch.delete(m.ref));
+      batch.delete(jDoc.ref);
+      await batch.commit();
+    }
+
+    // 2. Delete all habits
+    const habitsRef = collection(db, 'users', userId, 'habits');
+    const habitsSnap = await getDocs(habitsRef);
+    if (!habitsSnap.empty) {
+      const habitBatch = writeBatch(db);
+      habitsSnap.forEach((h) => habitBatch.delete(h.ref));
+      await habitBatch.commit();
+    }
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('has_dismissed_welcome_seed', 'true');
+    }
+  } catch (err) {
+    console.error('[Firestore] Failed to clear user data:', err);
+    throw err;
+  }
+}
+
+/**
  * Subscribes to messages within a specific journal entry.
  * Path: /users/{uid}/journals/{journalId}/messages
  */
