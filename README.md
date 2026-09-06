@@ -277,6 +277,19 @@ service cloud.firestore {
 2. **Path Isolation**: All Firestore operations strictly target `/users/${user.uid}/journals/${journalId}` and `/users/${user.uid}/habits/${habitId}`.
 3. **Database Enforcement**: If a user attempts to read, write, or query reflections outside their matching `request.auth.uid`, Firestore cryptographically rejects the operation at the infrastructure level with `PERMISSION_DENIED`.
 
+### 🛡️ Tiered Access & Rate Limiting (Guest Sandbox vs. Authenticated Multi-Tenancy)
+
+To provide an instant, zero-friction evaluation experience for hackathon reviewers while strictly preventing denial-of-wallet abuse and runaway billing, the application implements a dual-tier security model enforced via backend sliding-window rate limiters (`src/lib/security/rateLimit.ts`):
+
+| Tier | Storage Boundary | Rate Limit & Quota | Purpose & Architectural Behavior |
+| :--- | :--- | :--- | :--- |
+| **Guest Demo (Sandbox)** | Local client sandbox (`demo-user`) in browser storage | **5 reflections per 10 minutes** (IP-keyed) | Zero-friction evaluator walkthrough without requiring Google sign-in credentials upfront. Safe transient demo environment. |
+| **Authenticated (Google / Email)** | Isolated Cloud Firestore subtree (`/users/{userId}/*`) | **30 reflections per minute** (UID-keyed) | Persistent encrypted multi-tenant storage, habit tracking, analytics streak momentum, and webhook export. |
+
+- **Security & Abuse Defense**: Unauthenticated calls exceeding 5 turns in 10 minutes are rejected with HTTP 429 (`guestChatLimiter`), encouraging the user to sign in for full multi-turn capabilities.
+- **Data Boundary**: Guest data never touches cloud databases, and database-level `firestore.rules` prevent unauthenticated access to any user data.
+- **Compute Concurrency Cap**: Paired with Cloud Run's `max-instances: 2` ceiling, the system prevents adversarial instance flooding.
+
 ### Deploying Firestore Security Rules
 Deploy the rules directly using the Firebase CLI:
 ```bash
